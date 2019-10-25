@@ -18,10 +18,6 @@ data Game = Game
     prevPos :: [Coord],
     bodyLength :: Float, -- we can also use this to display score as long as we subtract initial amount before displaying
     moveDirection :: Char,
---    headPos2 :: Coord,
---    prevPos2 :: [Coord],
---    bodyLength2 :: Int
---    moveDirection2 :: Char,
     foodPos :: Coord,
     menu :: Bool,
     paused :: Bool,
@@ -29,7 +25,12 @@ data Game = Game
     framecount :: Int,
     time :: Float,
     gameOver :: Bool,
-    score :: Float
+    score :: Float,
+    multiplayer :: Bool,
+    headPos2 :: Coord,
+    prevPos2 :: [Coord],
+    bodyLength2 :: Int
+    moveDirection2 :: Char,
     }
 
 -- origin coordinate for reference
@@ -50,7 +51,12 @@ initSnake = Game
     framecount = 0,
     time = 0,
     gameOver = False,
-    score = 0
+    score = 0,
+    multiplayer = False
+    headPos2 = ()
+    prevPos2 :: [Coord],
+    bodyLength2 :: Int
+    moveDirection2 :: Char,
     }
 
 -- coordinate x and y for reference
@@ -100,7 +106,7 @@ render game
         food = uncurry translate (foodPos game) $ color red $ rectangleSolid 10 10
       -- scores
         scoreDisplay = show (bodyLength game)
-        score = translate (-200) 200 $ scale 0.5 0.5 $ color white $ text scoreDisplay
+        score = translate (-200) 200 $ scale 0.5 0.5 $ color white $ text show (calcScore(bodyLength game))
       -- time	
         timeDisplay = show (time game)
         clock    = translate 375 375 $ scale 0.25 0.25 $ color white $ text timeDisplay

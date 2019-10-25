@@ -10,7 +10,7 @@ import Control.Monad.Random
 
 -- PLAY
 main :: IO ()
-main = play glossGUI bgcol fps initSnake render controls renderAnimate
+main = play glossGUI bgcol sps initSnake render controls renderAnimate
 
 -- data for game
 data Game = Game
@@ -25,12 +25,7 @@ data Game = Game
     framecount :: Int,
     time :: Float,
     gameOver :: Bool,
-    score :: Float,
-    multiplayer :: Bool,
-    headPos2 :: Coord,
-    prevPos2 :: [Coord],
-    bodyLength2 :: Int
-    moveDirection2 :: Char,
+    score :: Float
     }
 
 -- origin coordinate for reference
@@ -51,12 +46,7 @@ initSnake = Game
     framecount = 0,
     time = 0,
     gameOver = False,
-    score = 0,
-    multiplayer = False
-    headPos2 = ()
-    prevPos2 :: [Coord],
-    bodyLength2 :: Int
-    moveDirection2 :: Char,
+    score = 0
     }
 
 -- coordinate x and y for reference
@@ -64,7 +54,7 @@ type Coord = (Float, Float)
 
 -- unit of measurement in gui
 unit :: Float
-unit = 10
+unit = 5
 
 -- gui bg colour    
 bgcol :: Color
@@ -74,9 +64,12 @@ bgcol = makeColor 0.17 0.18 0.20 1
 glossGUI :: Display
 glossGUI = InWindow "Snake Game" (750, 750) (0,0)
 
+
+-- returns x of head of snake
 xHead :: Game -> Float
 xHead game = fst(headPos game)
 
+-- returns y of head of snake
 yHead :: Game -> Float
 yHead game = snd(headPos game)
 
@@ -99,33 +92,43 @@ render game
               translate (-156) (-105) $ scale 0.13 0.13   $ color white $ text "for movement",
               translate (-200) (-145) $ scale 0.13 0.13   $ color white $ text "R to restart"]
   | otherwise = 
-    pictures [snakeHead, body, food, score, clock, xText, yText, foodText]
+    pictures [snakeHead, body, food, score, xText, yText, foodText]
       where
-        snakeHead = uncurry translate (headPos game) $ color green $ rectangleSolid 10 10
+        -- layouts the snake and food
+        snakeHead = uncurry translate (headPos game) $ color white $ rectangleSolid 5 5
         body = pictures (renderBody (prevPos game) (bodyLength game))
-        food = uncurry translate (foodPos game) $ color red $ rectangleSolid 10 10
+        food = uncurry translate (foodPos game) $ color red $ rectangleSolid 5 5 
       -- scores
-        scoreDisplay = show (bodyLength game)
-        score = translate (-200) 200 $ scale 0.5 0.5 $ color white $ text show (calcScore(bodyLength game))
+        scoreDisplay = show (calcScore (bodyLength game))
+        score = translate (-200) 200 $ scale 0.5 0.5 $ color white $ text scoreDisplay
+
       -- time	
-        timeDisplay = show (time game)
-        clock    = translate 375 375 $ scale 0.25 0.25 $ color white $ text timeDisplay
+        -- timeDisplay = show (time game)
+        -- clock    = translate 375 375 $ scale 0.25 0.25 $ color white $ text timeDisplay
+
+        -- used mostly for testing
+        -- gives the x,y position of the snake's head and food location
         xText    = translate 200 200 $ scale 0.15 0.15 $ color white $ text (show (xHead game))
         yText    = translate 200 180 $ scale 0.15 0.15 $ color white $ text (show (yHead game))
         foodText = translate 150 150 $ scale 0.15 0.15 $ color white $ text (show (foodPos game))
 
+
+-- displays a highlighted selection for difficulty in main menu
 colorSelector :: Game -> Int -> Color
 colorSelector game dif
   | (difficulty game) == dif = yellow
   | otherwise = white
+
+
 -- render snake body, no coords or body length = 0 results in an empty list; no snake
 renderBody :: [Coord] -> Float -> [Picture]
 renderBody [] _ = []
 renderBody _ 0 = []
 renderBody (x:xs) temp
-  | temp > 0 = (uncurry translate x $ color green $ rectangleSolid 10 10) : renderBody xs (temp-1)
+  | temp > 0 = (uncurry translate x $ color green $ rectangleSolid 5 5) : renderBody xs (temp-1)
   
 -- movement -> direction + unit(10)
+-- moves the snake based on what the next direction is from user input
 move :: Coord -> Char -> Coord
 move pos direction
   | direction == 'w' = (fst(pos),snd(pos) + unit)
@@ -133,6 +136,8 @@ move pos direction
   | direction == 's' = (fst(pos),snd(pos) - unit)
   | direction == 'd' = (fst(pos) + unit,snd(pos))
   | otherwise = (pos)
+
+
 -- controls
 controls :: Event -> Game -> Game
 
@@ -154,6 +159,7 @@ controls (EventKey (Char 'd') Down _ _) game
 controls (EventKey (Char 'r') _ _ _) game = initSnake
 
 -- menu selectors
+-- difficulties and start game
 controls (EventKey (Char '1') _ _ _) game
   | (menu game) = game {difficulty = 3}
   | otherwise = game
@@ -169,17 +175,12 @@ controls (EventKey (SpecialKey KeyEnter) _ _ _) game
 controls (EventKey (SpecialKey KeyPadEnter) _ _ _) game 
   | (menu game) = game {menu = False}
   | otherwise = game
--- -- pause/unpause
---controls (EventKey (Char ' ') _ _ _) game 
---  | game = game {paused = True}
---  | otherwise = game
+
 -- gameOver screen restart option
 controls (EventKey (Char 'x') _ _ _) game
   | (gameOver game) = initSnake
   | otherwise = game
---controls (EventKey (Char 'h') _ _ _) game
---  | (gameOver game) = game (menu = True)
---  | otherwise game
+
 -- disable other keys
 controls _ game = game -- other keys do nothing
 
@@ -196,7 +197,7 @@ renderAnimate seconds game
                        time       = newTime,
                        gameOver   = checkGO,
                        score      = newScore}
-  -- game just started , we initialize all our variables that we need to change per frame
+  -- game just started , we initialize all our variables that we need to change in every frame
   | otherwise =  game{time = newTime, framecount = nextFrame}
                 where
                   headPosBefore    = (headPos game)
@@ -209,7 +210,7 @@ renderAnimate seconds game
                   newLength        = growth headPosBefore (foodPos game) bodyLengthBefore
                   newScore         = calcScore bodyLengthBefore
                   nextFoodPos      = genNewFood headPosBefore foodPosBefore
-                  nextFrame        = mod (1 + frameBefore) (difficulty game) -- placeholder for now lemao
+                  nextFrame        = mod (1 + frameBefore) (difficulty game) 
                   newTime          = oldTime + seconds
                   checkGO          = (isGameOver game)
 
@@ -222,9 +223,11 @@ growth headPos foodPos bodyLength
 -- new food location if head has touched the food
 genNewFood :: Coord -> Coord -> Coord
 genNewFood a b = 
-  if a == b then multiplier (rounder (unsafePerformIO newFoodCoord))
+  if a == b then multiplier (rounder (  newFoodCoord))
   else b
 
+-- creates a random Coord for generation of a new food location
+-- 37 because 375/10 == 37 
 newFoodCoord :: IO Coord
 newFoodCoord = 
       do
@@ -232,18 +235,23 @@ newFoodCoord =
         n2 <- randomRIO (-37, 37)
         return (n1,n2)
 
+-- makes coord in the range of -370 to 370
 multiplier :: Coord -> Coord
 multiplier (x,y) = (x*10, y*10)
 
+-- rounds the coord to integer values or else our unit movement will never touch it
 rounder :: Coord -> Coord
 rounder (x,y) = (toCoord (toInte x, toInte y))
-  
+
+-- rounds a float to int
 toInt :: Float -> Int
 toInt = round
 
+-- rounds a float to integer
 toInte :: Float -> Integer
 toInte = round
 
+-- makes a integer coord into float coord
 toCoord :: (Integer, Integer) -> (Float, Float)
 toCoord (x,y) = (fromIntegral x, fromIntegral y)
 
@@ -252,24 +260,12 @@ isGameOver :: Game -> Bool
 isGameOver game
   | fst(headPos game) == 370 || fst(headPos game) == -370 || snd(headPos game) == 370 || snd(headPos game) == -370 = True
   | checkSelfCollision (bodyLength game) (headPos game) (prevPos game) = True
---  | checkSnakeOneCollision (bodyLength game) (bodyLength2 game) (headPos game) (headPos2 game) (prevPos game) (prevPos2 game) = True
---  | checkSnakeTwoCollision (bodyLength game) (bodyLength2 game) (headPos game) (headPos2 game) (prevPos game) (prevPos2 game) = True
   | otherwise = False
   
 -- checks if the snake is self colliding
 checkSelfCollision :: Float -> Coord -> [Coord] -> Bool
 checkSelfCollision _ _ [] = False
 checkSelfCollision bodyLength headPos prevPos = elem headPos (take (toInt bodyLength) prevPos)
-
--- create second snake
---renderBodyTwo :: [Coord] -> Integer -> []
---renderBodyTwo [] _ = []
---renderBodyTwo _ 0 = []
---renderBodyTwo (x:xs) temp
---  | temp > 0 = (uncurry translate x $ color green $ rectangleSolid 10 10) : renderBodyTwo xs (temp-1)
--- check if snake 1 has collided with snake 2 (Snake 2 wins)
--- check if snake 2 has collided with snake 1 (Snake 1 wins)
--- check if snake has collided with wall (other snake wins)
 
 -- scoring system
 calcScore :: Float -> Float
